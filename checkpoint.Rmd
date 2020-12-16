@@ -1,0 +1,264 @@
+---
+title: "Project "
+author: "Ernesto Herrero and Zach Cohen"
+date: "November 4, 2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r readData}
+# Replace this comment with your code or add it to the next line
+data <- read.csv("Fangraphs Leaderboard.csv")
+library("stringr")
+```
+
+
+```{r scatterplotMatrix}
+# Replace this comment with your code or add it to the next line
+
+plot(BABIP ~ EV,
+     data = data,
+     xlab = "Exit Velocity",
+     ylab = "Batting Average of Balls in Play",
+     main = "Scatterplot of EV vs BABIP")
+
+plot(BABIP ~ HR,
+     data = data,
+     xlab = "HR",
+     ylab = "Batting Average of Balls in Play",
+     main = "Scatterplot of HR vs BABIP")
+
+plot(HR ~ EV,
+     data = data,
+     xlab = "Exit velo",
+     ylab = "Home Runs",
+     main = "Scatterplot of HR vs EV")
+
+plot(wRC. ~ EV,
+     data = data,
+     xlab = "Exit Velo",
+     ylab = "WRC+",
+     main = "Scatterplot of WRC+ vs EV")
+
+```
+
+**Answer:** Since creating a single plot with all our predictors will not be as helpful as analyzing the statistics by themselves, I created four different plots. BABIP is a way to predict production, WRC+ is a stat to measure past production. Exit velo is a way to preict producion based on past performance, therefore if Exit velo does have a relationship with WRC+, then a relationship with BABIp should also be shown, but it doesn't
+
+
+
+### Histograms (4 points)
+
+Create five histograms for the five quantitative variables (response + predictors). Be sure to give each plot appropriate axis labels and a title. 
+
+```{r histograms}
+# Replace this comment with your code or add it to the next line
+hist(data$BABIP, 
+     breaks = 10,
+     xlab = "BABIP",
+     main = "Histogram of BABIP"
+     )
+hist(data$EV,
+     breaks = 10,
+     xlab = "Exit Velocity",
+     main = "Histogram of Exit Velocity"
+     )
+hist(data$HR,
+     breaks = 10,
+     xlab = "Home Runs",
+     main = "Histogram of Homers"
+     )
+hist(log(data$HR),
+     breaks = 10,
+     xlab = "log(Home Runs)",
+     main = "Histogram of Homers"
+     )
+hist(log(data$wRC.),
+     breaks = 10,
+     xlab = "log(WRC+)",
+     main = "Histogram of WRC+"
+     )
+```
+
+
+
+#### A log transformation was utilized for the Home Runs and for WRC+, but the data just changes from right skewed to left skewed. The histograms show exactly what I was expecting, relatively normal.
+
+##From the data, there does not seem to be any crazy outliers in any model. This was expected since in the data was acquired through the past 6 years, which is a pretty big sample size for things to balance out
+
+
+```{r numericalSummaries}
+lm_mod1 <- lm(BABIP ~ EV + Team, data = data)
+summary(lm_mod1)
+
+# This proves that Teams in this scenario are not much to take into consideration
+
+
+lm_mod2 <- lm(BABIP ~ HR, data = data)
+summary(lm_mod2)
+
+lm_mod3 <- lm(HR ~ EV, data = data)
+summary(lm_mod3)
+
+lm_mod4 <- lm( BABIP~ EV + wRC., data = data)
+summary(lm_mod4)
+
+
+```
+
+
+
+```{r sideBySideBoxplot}
+# Replace this comment with your code or add it to the next line
+boxplot( data$EV ~ data$Team,
+         xlab = "Team",
+         ylab = "Exit Velo",
+         )
+data$K.[1][2]
+```
+
+
+
+## Removing HomeRuns from the Exit Velocity Data
+
+### Some thoughts to remove exit velocity of homeruns from EV for it ta have same denominator as BABIP
+
+$(EV * BIP_t - EV avg HR * HR_t) / ( BIP_t - HR_t)$
+
+
+
+```{r cars}
+## We first need the total amount of balls in play which is when a player does not strike out, takes a walk, or hits a homerun.
+## Plate Appearances will help us out
+
+
+TotalKs <- c(1:359)*0
+TotalBBs <- c(1:359)*0
+
+
+#the vector of K% and BB% are strong vectors, which means we will have to change them to numeric vectors.
+
+# Have two vectors with the amount of times each player struck out and walked
+
+#this gives us the specific amount of digits we want for each "as.double" result
+# the str_remove simply takes out the % sign 
+#divided by 100 to have it as .27 instead of just 27 percent
+options(digits=4)
+for(i in 1:359)
+{
+  TotalKs[i] <- (data$PA[i] * (as.double(str_remove(data$K.[i], '%'))/100))
+  TotalBBs[i] <- (data$PA[i] * (as.double(str_remove(data$BB.[i], '%'))/100))
+}
+
+#Now we must find the total Balls In Play
+TotalBIP <-c(1:359)*0
+for(i in 1:359)
+{
+  TotalBIP[i] <- data$PA[i] - TotalKs[i] - TotalBBs[i] - data$HR[i]
+}
+
+#now we put the formula together
+EV_NoHRs <- c(1:359)*0
+
+for(i in 1:359)
+{
+  EV_NoHRs[i] <- ((data$EV[i] * TotalBIP[i]) - (103.5 * data$HR[i]))/ (TotalBIP[i] - data$HR[i])
+}
+
+```
+
+
+## Now that we have organized our data, the model could have better or not better results. Before, we were comparing apples to oranges, since Exvit velo had Home Runs included and BABIP did not. 
+
+```{r redo}
+final_mod1 <- lm(data$BABIP ~ EV_NoHRs)
+final_mod2 <- lm(data$BABIP ~ I(EV_NoHRs^2))
+plot(BABIP ~ EV,
+     data = data,
+     xlab = "Exit Velocity (HR included)",
+     ylab = "Batting Average of Balls in Play",
+     main = "Scatterplot of EV(HR included) vs BABIP")
+
+plot(data$BABIP ~ EV_NoHRs,
+     xlab = "Exit Velocity( HR not included)",
+     ylab = "Batting Average of Balls in Play",
+     main = "Scatterplot of EV(HR not included) vs BABIP")
+
+plot(data$BABIP ~ I(EV_NoHRs^2),
+     xlab = "Exit Velocity( HR not included)",
+     ylab = "Batting Average of Balls in Play",
+     main = "Scatterplot of EV(HR not included) vs BABIP")
+
+
+summary(lm_mod1)
+summary(final_mod1)
+summary(final_mod2)
+```
+
+
+#### From these results, we can see that the R-squared only increased by 1 point.This ultimately means that at the end of the day, batting average of balls in play and exit velocity do not correlate between each other. This basically means that it does not matter whther you hit the ball really ahrd or really soft, at the end your batting averge will not depend much on that. Exit velo on the other hand does correlate with other things such as Home Runs, WRC+, and other more specific production sabermetrics. 
+
+#### It is also interesting since both of these statistics are universally used as predictors for future success. Therefore, we can now use both of these. For example, if the guy has a low BABIP and a high Exit Velo, he will definitely break out and produce more. If he is lacking on one side, we can still predict that he will improve since EV and BABIP do not correlate.
+
+
+##### Clearly Exit velocity doesnt have any correlation with BABIp at all, but why? Well, let's try to see how much is there to cover up on this. 
+##### Since these two sabermetrics are used to predict production, let's see how much they can actually predict.
+
+```{r findout}
+# WRC+ is the main sabermetric to predict offesnive production
+lm_WRC <- lm(data$wRC. ~ data$EV + data$BABIP)
+summary(lm_WRC)
+
+# 43% of the WRC+ data can be explained by Exit Velo or BABIP. This number was actually quite higher than I expected.
+# We can assume that the rest of the 57% is explained by the actual types of hits, such as Home Runs, doubles, etc.
+
+
+```
+#### This leaves me with one simple question, if Exit Velo cannot come to relationship with BABIP, what does BABIP actually have a relationship with?
+#### Well, let's take a look. We will acquire this new data set with other sabermetrics to tell us where BABIP comes from
+
+```{r BABIP}
+extra <- read.csv("ExtraData.csv")
+
+# Since our data is coming into string forms, we must change it to doubles and create new vectors
+LD <- c(1:359)*0
+IFFB <- c(1:359)*0
+Pull <- c(1:359)*0
+
+options(digits=4)
+for(i in 1:359)
+{
+  LD[i] <-  (as.double(str_remove(extra$LD.[i], '%'))/100)
+  IFFB[i] <- (as.double(str_remove(extra$IFFB.[i], '%'))/100)
+  Pull[i] <- (as.double(str_remove(extra$Pull.[i], '%'))/100)
+  
+}
+
+# Now that we have our data all set, lets run a couple of correlation tests 
+lm_babipx <- lm(extra$BABIP ~ LD + IFFB +Pull + extra$Handedness)
+summary(lm_babipx)
+
+#Lets Check for Multicolinearity:
+
+summary(lm(lm_babipx))$r.squared
+summary(lm(Pull ~ LD + IFFB))$r.squared
+summary(lm(IFFB ~ LD  + Pull))$r.squared
+
+#The R squared for each variable is not incredibly high (above .9), which would signal there is no major Multicolinearity issues
+# There is also no Overfitting issues since we have a total of 359 observations which works with our rule of thumb 359 < 10(4)
+```
+
+## With these results, we can now start to see what BABIP is depending on. Instead of the power of contact (EV), it seems to be more related to the type of contact it was and its direction. Foe example, if the ball was a linedrive, which is a well-hit ball, then we can say that that type of hit has a higher BABIP
+
+
+
+
+
