@@ -25,6 +25,7 @@ library("stringr")
 ```{r scatterplotMatrix}
 # Replace this comment with your code or add it to the next line
 
+
 plot(BABIP ~ EV,
      data = data,
      xlab = "Exit Velocity",
@@ -48,6 +49,8 @@ plot(wRC. ~ EV,
      xlab = "Exit Velo",
      ylab = "WRC+",
      main = "Scatterplot of WRC+ vs EV")
+
+plot(~ BABIP +EV + HR + wRC., data = data)
 
 ```
 
@@ -90,6 +93,7 @@ hist(log(data$wRC.),
 
 
 
+
 #### A log transformation was utilized for the Home Runs and for WRC+, but the data just changes from right skewed to left skewed. The histograms show exactly what I was expecting, relatively normal.
 
 ##From the data, there does not seem to be any crazy outliers in any model. This was expected since in the data was acquired through the past 6 years, which is a pretty big sample size for things to balance out
@@ -102,7 +106,7 @@ summary(lm_mod1)
 # This proves that Teams in this scenario are not much to take into consideration
 
 
-lm_mod2 <- lm(BABIP ~ HR, data = data)
+lm_mod2 <- lm(BABIP ~ EV, data = data)
 summary(lm_mod2)
 
 lm_mod3 <- lm(HR ~ EV, data = data)
@@ -122,7 +126,6 @@ boxplot( data$EV ~ data$Team,
          xlab = "Team",
          ylab = "Exit Velo",
          )
-data$K.[1][2]
 ```
 
 
@@ -181,6 +184,7 @@ for(i in 1:359)
 ```{r redo}
 final_mod1 <- lm(data$BABIP ~ EV_NoHRs)
 final_mod2 <- lm(data$BABIP ~ I(EV_NoHRs^2))
+final_mod3 <- lm(data$BABIP ~ EV_NoHRs * data$wRC.)
 plot(BABIP ~ EV,
      data = data,
      xlab = "Exit Velocity (HR included)",
@@ -201,6 +205,7 @@ plot(data$BABIP ~ I(EV_NoHRs^2),
 summary(lm_mod1)
 summary(final_mod1)
 summary(final_mod2)
+summary(final_mod3)
 ```
 
 
@@ -224,33 +229,42 @@ summary(lm_WRC)
 ```
 #### This leaves me with one simple question, if Exit Velo cannot come to relationship with BABIP, what does BABIP actually have a relationship with?
 #### Well, let's take a look. We will acquire this new data set with other sabermetrics to tell us where BABIP comes from
+```{r}
+extra <- read.csv("ExtraData.csv")
+```
+
 
 ```{r BABIP}
-extra <- read.csv("ExtraData.csv")
+
 
 # Since our data is coming into string forms, we must change it to doubles and create new vectors
 LD <- c(1:359)*0
-IFFB <- c(1:359)*0
+FB <- c(1:359)*0
 Pull <- c(1:359)*0
+
 
 options(digits=4)
 for(i in 1:359)
 {
   LD[i] <-  (as.double(str_remove(extra$LD.[i], '%'))/100)
-  IFFB[i] <- (as.double(str_remove(extra$IFFB.[i], '%'))/100)
+  FB[i] <- (as.double(str_remove(extra$FB.[i], '%'))/100)
   Pull[i] <- (as.double(str_remove(extra$Pull.[i], '%'))/100)
   
 }
 
 # Now that we have our data all set, lets run a couple of correlation tests 
-lm_babipx <- lm(extra$BABIP ~ LD + IFFB +Pull + extra$Handedness)
-summary(lm_babipx)
+lm_babipx <- lm(extra$BABIP ~ LD + FB + Pull + extra$Handedness)
+lm_babipI <- lm(extra$BABIP ~ LD + FB + Pull*extra$Handedness)
+lm_babipF <- lm(extra$BABIP ~ LD + FB + Pull)
 
+summary(lm_babipx)
+summary(lm_babipI)
+summary(lm_babipF)
 #Lets Check for Multicolinearity:
 
 summary(lm(lm_babipx))$r.squared
-summary(lm(Pull ~ LD + IFFB))$r.squared
-summary(lm(IFFB ~ LD  + Pull))$r.squared
+summary(lm(Pull ~ LD + FB))$r.squared
+summary(lm(FB ~ LD  + Pull))$r.squared
 
 #The R squared for each variable is not incredibly high (above .9), which would signal there is no major Multicolinearity issues
 # There is also no Overfitting issues since we have a total of 359 observations which works with our rule of thumb 359 < 10(4)
@@ -259,6 +273,17 @@ summary(lm(IFFB ~ LD  + Pull))$r.squared
 ## With these results, we can now start to see what BABIP is depending on. Instead of the power of contact (EV), it seems to be more related to the type of contact it was and its direction. Foe example, if the ball was a linedrive, which is a well-hit ball, then we can say that that type of hit has a higher BABIP
 
 
+```{r}
+plot(~ BABIP + LD + FB + Pull + Handedness, data = extra)
+plot(lm_babipF$fitted.values, lm_babipx$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted Values Plot")
+abline(h = 0, lty = 2, col = "red")
+qqnorm(lm_babipF$residuals, 
+       main = "QQ Plot of the Residuals")
+qqline(lm_babipF$residuals)
+```
 
 
 
